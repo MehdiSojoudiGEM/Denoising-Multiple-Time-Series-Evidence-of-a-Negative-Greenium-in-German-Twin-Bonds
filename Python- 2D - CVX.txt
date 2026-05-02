@@ -1,0 +1,383 @@
+%% clean_trend_filtering_cvx.m
+% -------------------------------------------------------------------------
+% Goal:
+%   Estimate the underlying trend of a noisy univariate time series using:
+%       1. l1 trend filtering
+%       2. spline trend filtering
+%
+% Optimization:
+%   Both estimators are solved using the CVX package in MATLAB.
+%
+% Requirements:
+%   CVX must be installed and added to the MATLAB path.
+%   CVX website: http://cvxr.com/cvx/
+%
+% Main features:
+%   - Clean parameter section
+%   - Several built-in signal-generating functions
+%   - Option to use a custom signal
+%   - Option to run all methods or only one method
+%   - Helper functions at the end of the file
+% -------------------------------------------------------------------------
+
+clear
+clc
+close all
+
+%% ------------------------------------------------------------------------
+% 1. User inputs
+% -------------------------------------------------------------------------
+
+params.T = 400;                  % Length of the time series
+params.noiseStd = 0.10;          % Standard deviation of Gaussian noise
+
+params.kTrend = 1;               % Difference order for l1 trend filtering
+params.kSpline = 1;              % Difference order for spline penalty
+
+params.knotSpacing = 5;          % Distance between two adjacent knots
+
+params.lambdaTrend = 0.01;       % Tuning parameter for l1 trend filtering
+params.lambdaSpline = 0.01;      % Tuning parameter for spline smoothness
+
+% Choose the signal-generating function.
+% Available options:
+%   'oscillatory_sqrt'
+%   'smooth_sine'
+%   'piecewise_trend'
+%   'custom'
+params.signalCase = 'oscillatory_sqrt';
+
+% If params.signalCase = 'custom', define the custom function here.
+% The input x is scaled between 0 and 1.
+params.customSignal = @(x) 0.50 * sin(4 * pi * x) + 0.25 * x;
+
+% Choose which method to run.
+% Available options:
+%   {'all'}
+%   {'trend_filtering'}
+%   {'spline_trend_filtering'}
+params.methodsToRun = {'all'};
+
+% Set the random seed for reproducibility.
+params.randomSeed = 123;
+
+%% ------------------------------------------------------------------------
+% 2. Generate the noisy time series
+% -------------------------------------------------------------------------
+
+rng(params.randomSeed)
+
+t = (1:params.T)';
+x = linspace(0, 1, params.T)';
+
+yTrue = generateSignal(x, params.signalCase, params.customSignal);
+yNoisy = yTrue + params.noiseStd * randn(params.T, 1);
+
+%% ------------------------------------------------------------------------
+% 3. Build the difference matrix for l1 trend filtering
+% -------------------------------------------------------------------------
+
+DTrend = createDifferenceMatrix(params.T, params.kTrend);
+
+%% ------------------------------------------------------------------------
+% 4. Build the cubic B-spline design matrix
+% -------------------------------------------------------------------------
+
+knots = 1:params.knotSpacing:params.T;
+numberOfKnots = numel(knots);
+
+extendedKnots = ...
+    (1 - 3 * params.knotSpacing):params.knotSpacing:(params.T + 3 * params.knotSpacing);
+
+B = createCubicBSplineDesign(t, extendedKnots);
+
+% The number of spline coefficients must match the number of columns of B.
+numberOfSplineCoefficients = size(B, 2);
+
+% Difference matrix for the spline coefficients.
+DSpline = createDifferenceMatrix(numberOfSplineCoefficients, params.kSpline);
+
+%% ------------------------------------------------------------------------
+% 5. Run selected estimators
+% -------------------------------------------------------------------------
+
+runTrendFiltering = ...
+    any(strcmp(params.methodsToRun, 'all')) || ...
+    any(strcmp(params.methodsToRun, 'trend_filtering'));
+
+runSplineTrendFiltering = ...
+    any(strcmp(params.methodsToRun, 'all')) || ...
+    any(strcmp(params.methodsToRun, 'spline_trend_filtering'));
+
+trendFilteringFit = [];
+splineTrendFilteringFit = [];
+
+if runTrendFiltering
+    trendFilteringFit = estimateTrendFilteringCVX( ...
+        yNoisy, ...
+        DTrend, ...
+        params.lambdaTrend, ...
+        params.T, ...
+        params.kTrend);
+end
+
+if runSplineTrendFiltering
+    splineTrendFilteringFit = estimateSplineTrendFilteringCVX( ...
+        yNoisy, ...
+        B, ...
+        DTrend, ...
+        DSpline, ...
+        params.lambdaTrend, ...
+        params.lambdaSpline, ...
+        params.T, ...
+        params.kTrend);
+end
+
+%% ------------------------------------------------------------------------
+% 6. Plot the results
+% -------------------------------------------------------------------------
+
+figure('Color', 'w', 'Position', [100 100 1400 450])
+
+plotCounter = 1;
+numberOfPlots = 1 + runTrendFiltering + runSplineTrendFiltering;
+
+% True signal and noisy observations
+subplot(1, numberOfPlots, plotCounter)
+plot(t, yTrue, 'k', 'LineWidth', 1.5)
+hold on
+plot(t, yNoisy, 'o', ...
+    'MarkerEdgeColor', [0.4 0.4 0.4], ...
+    'MarkerSize', 4)
+grid on
+legend('Exact Signal', 'Noisy Signal', 'Location', 'best')
+title('True Signal and Noisy Observations')
+xlabel('Time')
+ylabel('Signal')
+
+plotCounter = plotCounter + 1;
+
+% l1 trend filtering result
+if runTrendFiltering
+    subplot(1, numberOfPlots, plotCounter)
+    plot(t, trendFilteringFit, 'b', 'LineWidth', 1.5)
+    hold on
+    plot(t, yNoisy, 'o', ...
+        'MarkerEdgeColor', [0.4 0.4 0.4], ...
+        'MarkerSize', 4)
+    grid on
+    legend('Trend Filtering', 'Noisy Signal', 'Location', 'best')
+    title({ ...
+        'l1 Trend Filtering', ...
+        ['\lambda_1 = ', num2str(params.lambdaTrend)], ...
+        ['k_1 = ', num2str(params.kTrend)]})
+    xlabel('Time')
+    ylabel('Signal')
+
+    plotCounter = plotCounter + 1;
+end
+
+% Spline trend filtering result
+if runSplineTrendFiltering
+    subplot(1, numberOfPlots, plotCounter)
+    plot(t, splineTrendFilteringFit, 'r', 'LineWidth', 1.5)
+    hold on
+    plot(t, yNoisy, 'o', ...
+        'MarkerEdgeColor', [0.4 0.4 0.4], ...
+        'MarkerSize', 4)
+    grid on
+    legend('Spline Trend Filtering', 'Noisy Signal', 'Location', 'best')
+    title({ ...
+        'Spline Trend Filtering', ...
+        ['\lambda_1 = ', num2str(params.lambdaTrend), ...
+         ', \lambda_2 = ', num2str(params.lambdaSpline)], ...
+        ['k_1 = ', num2str(params.kTrend), ...
+         ', k_2 = ', num2str(params.kSpline)], ...
+        ['Knot spacing = ', num2str(params.knotSpacing)]})
+    xlabel('Time')
+    ylabel('Signal')
+end
+
+%% ========================================================================
+%  Local functions
+% ========================================================================
+
+function yTrue = generateSignal(x, signalCase, customSignal)
+% generateSignal creates the true underlying signal.
+%
+% Inputs:
+%   x            : normalized time vector between 0 and 1
+%   signalCase   : selected signal type
+%   customSignal : user-defined function handle
+%
+% Output:
+%   yTrue        : noiseless signal
+
+switch lower(signalCase)
+
+    case 'oscillatory_sqrt'
+        yTrue = sqrt(x .* (1 - x)) .* ...
+            sin((2 * pi * (1 + 0.05)) ./ (x + 0.05));
+
+    case 'smooth_sine'
+        yTrue = sin(2 * pi * x) + 0.50 * cos(6 * pi * x);
+
+    case 'piecewise_trend'
+        yTrue = zeros(size(x));
+        yTrue(x <= 0.30) = 2 * x(x <= 0.30);
+        yTrue(x > 0.30 & x <= 0.70) = ...
+            0.60 - 1.50 * (x(x > 0.30 & x <= 0.70) - 0.30);
+        yTrue(x > 0.70) = ...
+            0.00 + 1.20 * (x(x > 0.70) - 0.70);
+
+    case 'custom'
+        yTrue = customSignal(x);
+
+    otherwise
+        error('Unknown signalCase. Please choose a valid signal option.')
+end
+
+yTrue = yTrue(:);
+end
+
+function D = createDifferenceMatrix(n, orderK)
+% createDifferenceMatrix creates a discrete difference matrix.
+%
+% For orderK = 0, the function returns the first-difference matrix.
+% For orderK = 1, it returns the second-difference matrix.
+% For orderK = 2, it returns the third-difference matrix, and so on.
+%
+% This follows the convention used in the original code.
+
+D = diff(eye(n), orderK + 1);
+
+end
+
+function B = createCubicBSplineDesign(t, extendedKnots)
+% createCubicBSplineDesign creates the cubic B-spline design matrix.
+%
+% Inputs:
+%   t             : time vector
+%   extendedKnots : knot vector extended at the boundaries
+%
+% Output:
+%   B             : cubic B-spline design matrix
+
+numberOfObservations = length(t);
+numberOfIntervals = length(extendedKnots) - 1;
+
+B0 = zeros(numberOfObservations, numberOfIntervals);
+
+for i = 1:numberOfObservations
+    for j = 1:numberOfIntervals
+        if extendedKnots(j) <= t(i) && t(i) < extendedKnots(j + 1)
+            B0(i, j) = 1;
+        end
+    end
+end
+
+B1 = zeros(numberOfObservations, numberOfIntervals);
+
+for i = 1:numberOfObservations
+    for j = 2:numberOfIntervals
+        firstTerm = ...
+            ((t(i) - extendedKnots(j - 1)) / ...
+            (extendedKnots(j) - extendedKnots(j - 1))) * B0(i, j - 1);
+
+        secondTerm = ...
+            ((extendedKnots(j + 1) - t(i)) / ...
+            (extendedKnots(j + 1) - extendedKnots(j))) * B0(i, j);
+
+        B1(i, j) = firstTerm + secondTerm;
+    end
+end
+
+B2 = zeros(numberOfObservations, numberOfIntervals);
+
+for i = 1:numberOfObservations
+    for j = 3:numberOfIntervals
+        firstTerm = ...
+            ((t(i) - extendedKnots(j - 2)) / ...
+            (extendedKnots(j) - extendedKnots(j - 2))) * B1(i, j - 1);
+
+        secondTerm = ...
+            ((extendedKnots(j + 1) - t(i)) / ...
+            (extendedKnots(j + 1) - extendedKnots(j - 1))) * B1(i, j);
+
+        B2(i, j) = firstTerm + secondTerm;
+    end
+end
+
+B3 = zeros(numberOfObservations, numberOfIntervals);
+
+for i = 1:numberOfObservations
+    for j = 4:numberOfIntervals
+        firstTerm = ...
+            ((t(i) - extendedKnots(j - 3)) / ...
+            (extendedKnots(j) - extendedKnots(j - 3))) * B2(i, j - 1);
+
+        secondTerm = ...
+            ((extendedKnots(j + 1) - t(i)) / ...
+            (extendedKnots(j + 1) - extendedKnots(j - 2))) * B2(i, j);
+
+        B3(i, j) = firstTerm + secondTerm;
+    end
+end
+
+% Remove the first three boundary columns, as in the original code.
+B3(:, 1:3) = [];
+
+B = B3;
+
+end
+
+function trendFit = estimateTrendFilteringCVX(y, DTrend, lambdaTrend, T, kTrend)
+% estimateTrendFilteringCVX estimates the l1 trend filtering signal.
+%
+% Objective:
+%   minimize 0.5 * ||y - alphaprim||_2^2
+%          + lambda * ||D alphaprim||_1
+%
+% The scaling follows the original code:
+%   lambda * T^k / factorial(k)
+
+penaltyMatrix = ((lambdaTrend * T^kTrend) / factorial(kTrend)) * DTrend;
+
+cvx_begin quiet
+    variable alphaprim(T)
+
+    minimize(0.5 * sum_square(y - alphaprim) + norm(penaltyMatrix * alphaprim, 1))
+cvx_end
+
+trendFit = alphaprim;
+
+end
+
+function splineFit = estimateSplineTrendFilteringCVX( ...
+    y, B, DTrend, DSpline, lambdaTrend, lambdaSpline, T, kTrend)
+% estimateSplineTrendFilteringCVX estimates the spline trend filtering signal.
+%
+% Objective:
+%   minimize 0.5 * ||y - B betaprim||_2^2
+%          + lambda_1 * ||D B betaprim||_1
+%          + lambda_2 * ||D_beta betaprim||_2^2
+
+numberOfSplineCoefficients = size(B, 2);
+
+cvx_begin quiet
+    variable betaprim(numberOfSplineCoefficients)
+
+    dataFit = 0.5 * sum_square(y - B * betaprim);
+
+    trendPenalty = ...
+        ((lambdaTrend * T^kTrend) / factorial(kTrend)) * ...
+        norm(DTrend * (B * betaprim), 1);
+
+    splinePenalty = lambdaSpline * sum_square(DSpline * betaprim);
+
+    minimize(dataFit + trendPenalty + splinePenalty)
+cvx_end
+
+splineFit = B * betaprim;
+
+end

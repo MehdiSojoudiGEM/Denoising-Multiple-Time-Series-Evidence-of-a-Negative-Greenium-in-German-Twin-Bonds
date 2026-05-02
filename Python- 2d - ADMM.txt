@@ -1,0 +1,587 @@
+"""
+Univariate Trend Estimation using l1 Trend Filtering and Spline Trend Filtering and 
+
+This script estimates the underlying trend of a noisy univariate time series using:
+
+1. l1 Trend Filtering
+2. Spline Trend Filtering
+
+
+Both estimators are solved using an ADMM-type algorithm.
+
+The spline trend filtering step uses CVXPY because the original MATLAB
+implementation relies on CVX inside the ADMM iterations.
+"""
+
+import numpy as np
+import matplotlib.pyplot as plt
+import cvxpy as cp
+from math import factorial
+
+
+# ============================================================
+# User inputs
+# ============================================================
+
+# Sample size
+# Range: positive integer, usually T >= 50
+T = 400
+
+# Noise level added to the clean signal
+# Range: non-negative real number, usually 0 <= NOISE_STD <= 1
+NOISE_STD = 0.10
+
+# Difference order used in l1 trend filtering
+# Range: non-negative integer, usually 0, 1, 2, or 3
+K_TREND_FILTER = 1
+
+# Difference order used for the spline coefficient penalty
+# Range: non-negative integer, usually 0, 1, 2, or 3
+K_SPLINE = 1
+
+# Knot spacing for the cubic B-spline basis
+# Range: positive integer, usually between 1 and T
+KNOT_SPACING = 20
+
+# Regularization parameter for l1 trend filtering
+# Range: positive real number, usually lambda > 0
+LAMBDA_TREND_FILTER = 0.01
+
+# Regularization parameter for spline smoothness
+# Range: positive real number, usually lambda > 0
+LAMBDA_SPLINE = 0.10
+
+# ============================================================
+# ADMM parameters
+# ============================================================
+
+# ADMM parameters
+RHO = 1.20
+ABS_TOL = 1e-4
+REL_TOL = 1e-2
+MAX_ADMM_ITER = 1000
+
+# Plotting
+N_DENSE_GRID = 1000
+
+# ============================================================
+# Helper functions
+# ============================================================
+
+
+def first_difference_matrix(n):
+    """
+    Construct the first-order finite difference matrix.
+    """
+
+    D = np.zeros((n - 1, n))
+    rows = np.arange(n - 1)
+
+    D[rows, rows] = -1.0
+    D[rows, rows + 1] = 1.0
+
+    return D
+
+
+def difference_matrix(n, order):
+    """
+    Construct a recursive finite-difference matrix.
+
+    order = 0 gives the first-difference matrix
+    order = 1 gives the second-difference matrix
+    order = 2 gives the third-difference matrix
+    """
+
+    D = first_difference_matrix(n)
+
+    for j in range(1, order + 1):
+        D_next = first_difference_matrix(n - j)
+        D = D_next @ D
+
+    return D
+
+
+def soft_threshold(x, threshold):
+    """
+    Apply the soft-thresholding operator.
+    """
+
+    return np.sign(x) * np.maximum(np.abs(x) - threshold, 0.0)
+
+
+def simulate_noisy_signal(T, noise_std):
+    """
+    Simulate the clean signal and add Gaussian noise.
+
+    Since no random seed is fixed, the noisy signal changes every time
+    the script is executed.
+    """
+
+    rng = np.random.default_rng()
+
+    t = np.arange(1, T + 1)
+    x = np.linspace(0, 1, T)
+
+    clean_signal = (
+        np.sqrt(x * (1 - x))
+        * np.sin((2 * np.pi * (1 + 0.05)) / (x + 0.05))
+    )
+
+    noisy_signal = clean_signal + noise_std * rng.normal(0, 1, T)
+
+    return t, clean_signal, noisy_signal
+
+
+def construct_knots(T, knot_spacing):
+    """
+    Construct the knot sequence used for the cubic B-spline basis.
+    """
+
+    knots = np.arange(1, T + 1, knot_spacing)
+
+    extended_knots = np.arange(
+        1 - 3 * knot_spacing,
+        T + 3 * knot_spacing + 1,
+        knot_spacing
+    )
+
+    return knots, extended_knots
+
+
+def make_bspline_design(t_values, knots):
+    """
+    Construct the cubic B-spline design matrix.
+
+    The construction follows the recursive logic used in the original
+    MATLAB code.
+    """
+
+    t_values = np.asarray(t_values, dtype=float)
+    knots = np.asarray(knots, dtype=float)
+
+    n_obs = len(t_values)
+    n_knots = len(knots)
+    n_columns = n_knots - 1
+
+    B0 = np.zeros((n_obs, n_columns))
+    B1 = np.zeros((n_obs, n_columns))
+    B2 = np.zeros((n_obs, n_columns))
+    B3 = np.zeros((n_obs, n_columns))
+
+    for j in range(1, n_knots):
+        col = j - 1
+
+        B0[:, col] = (
+            (knots[col] <= t_values)
+            & (t_values < knots[col + 1])
+        ).astype(float)
+
+    for j in range(2, n_knots):
+        col = j - 1
+
+        term_1 = (
+            (t_values - knots[j - 2])
+            / (knots[j - 1] - knots[j - 2])
+        ) * B0[:, j - 2]
+
+        term_2 = (
+            (knots[j] - t_values)
+            / (knots[j] - knots[j - 1])
+        ) * B0[:, j - 1]
+
+        B1[:, col] = term_1 + term_2
+
+    for j in range(3, n_knots):
+        col = j - 1
+
+        term_1 = (
+            (t_values - knots[j - 3])
+            / (knots[j - 1] - knots[j - 3])
+        ) * B1[:, j - 2]
+
+        term_2 = (
+            (knots[j] - t_values)
+            / (knots[j] - knots[j - 2])
+        ) * B1[:, j - 1]
+
+        B2[:, col] = term_1 + term_2
+
+    for j in range(4, n_knots):
+        col = j - 1
+
+        term_1 = (
+            (t_values - knots[j - 4])
+            / (knots[j - 1] - knots[j - 4])
+        ) * B2[:, j - 2]
+
+        term_2 = (
+            (knots[j] - t_values)
+            / (knots[j] - knots[j - 3])
+        ) * B2[:, j - 1]
+
+        B3[:, col] = term_1 + term_2
+
+    return B3[:, 3:]
+
+
+def solve_cvxpy_problem(problem):
+    """
+    Solve a CVXPY optimization problem using the first available solver.
+    """
+
+    available_solvers = set(cp.installed_solvers())
+
+    for solver in ["CLARABEL", "OSQP", "SCS"]:
+        if solver in available_solvers:
+            problem.solve(
+                solver=solver,
+                warm_start=True,
+                verbose=False
+            )
+
+            if problem.status in [cp.OPTIMAL, cp.OPTIMAL_INACCURATE]:
+                return
+
+    problem.solve(warm_start=True, verbose=False)
+
+    if problem.status not in [cp.OPTIMAL, cp.OPTIMAL_INACCURATE]:
+        raise RuntimeError(
+            f"CVXPY failed to solve the problem. Status: {problem.status}"
+        )
+
+
+# ============================================================
+# Spline Trend Filtering
+# ============================================================
+
+def spline_trend_filtering(
+    y,
+    B,
+    D_trend,
+    D_beta,
+    lambda_trend,
+    lambda_spline,
+    k_trend,
+    rho,
+    abs_tol,
+    rel_tol,
+    max_iter
+):
+    """
+    Estimate the trend using spline trend filtering.
+
+    The model is solved using ADMM. The r-update and beta-update are
+    convex optimization subproblems solved using CVXPY.
+    """
+
+    n_obs = len(y)
+    n_beta = B.shape[1]
+
+    scale = lambda_trend * (n_obs ** k_trend) / factorial(k_trend)
+
+    r = np.ones(n_obs)
+    beta = np.ones(n_beta)
+    u = np.ones(n_obs)
+
+    r_var = cp.Variable(n_obs)
+    beta_var = cp.Variable(n_beta)
+
+    beta_param = cp.Parameter(n_beta)
+    r_param = cp.Parameter(n_obs)
+    u_r_param = cp.Parameter(n_obs)
+    u_beta_param = cp.Parameter(n_obs)
+
+    r_objective = (
+        0.5 * cp.sum_squares(r_var)
+        + scale * cp.norm1(D_trend @ (y - r_var))
+        + (rho / 2) * cp.sum_squares(
+            r_var + B @ beta_param - y + u_r_param
+        )
+    )
+
+    beta_objective = (
+        lambda_spline * cp.sum_squares(D_beta @ beta_var)
+        + (rho / 2) * cp.sum_squares(
+            r_param + B @ beta_var - y + u_beta_param
+        )
+    )
+
+    r_problem = cp.Problem(cp.Minimize(r_objective))
+    beta_problem = cp.Problem(cp.Minimize(beta_objective))
+
+    for iteration in range(1, max_iter + 1):
+
+        beta_old = beta.copy()
+
+        # r-update
+        beta_param.value = beta_old
+        u_r_param.value = u
+
+        solve_cvxpy_problem(r_problem)
+
+        if r_var.value is None:
+            raise RuntimeError("The r-update failed.")
+
+        r = np.asarray(r_var.value).reshape(n_obs)
+
+        # beta-update
+        r_param.value = r
+        u_beta_param.value = u
+
+        solve_cvxpy_problem(beta_problem)
+
+        if beta_var.value is None:
+            raise RuntimeError("The beta-update failed.")
+
+        beta = np.asarray(beta_var.value).reshape(n_beta)
+
+        # ADMM residuals
+        primal_residual = r + B @ beta - y
+        dual_residual = rho * B @ (beta - beta_old)
+
+        # Scaled dual update
+        u = u + primal_residual
+
+        primal_norm = np.linalg.norm(primal_residual)
+        dual_norm = np.linalg.norm(dual_residual)
+
+        eps_primal = (
+            np.sqrt(n_obs) * abs_tol
+            + rel_tol * max(
+                np.linalg.norm(r),
+                np.linalg.norm(B @ beta),
+                np.linalg.norm(y)
+            )
+        )
+
+        eps_dual = (
+            np.sqrt(n_obs) * abs_tol
+            + rel_tol * np.linalg.norm(rho * u)
+        )
+
+        if primal_norm <= eps_primal and dual_norm <= eps_dual:
+            return beta, iteration
+
+    print("Warning: Spline Trend Filtering reached the maximum number of ADMM iterations.")
+
+    return beta, max_iter
+
+
+# ============================================================
+# l1 Trend Filtering
+# ============================================================
+
+def l1_trend_filtering(
+    y,
+    D_trend,
+    lambda_trend,
+    k_trend,
+    rho,
+    abs_tol,
+    rel_tol,
+    max_iter
+):
+    """
+    Estimate the trend using l1 trend filtering.
+
+    This implementation uses an ADMM structure with a linear-system
+    update followed by a soft-thresholding update.
+    """
+
+    n_obs = len(y)
+
+    scale = lambda_trend * (n_obs ** k_trend) / factorial(k_trend)
+    B_tf = scale * D_trend
+
+    z = np.ones(B_tf.shape[0])
+    u = np.ones(B_tf.shape[0])
+
+    lhs = np.eye(n_obs) + rho * (B_tf.T @ B_tf)
+
+    for iteration in range(1, max_iter + 1):
+
+        z_old = z.copy()
+
+        # Trend update
+        rhs = y + rho * B_tf.T @ (z + u)
+        alpha = np.linalg.solve(lhs, rhs)
+
+        # Soft-thresholding update
+        z = soft_threshold(B_tf @ alpha - u, 1 / rho)
+
+        # ADMM residuals
+        primal_residual = z - B_tf @ alpha
+        dual_residual = -rho * B_tf.T @ (z - z_old)
+
+        # Scaled dual update
+        u = u + primal_residual
+
+        primal_norm = np.linalg.norm(primal_residual)
+        dual_norm = np.linalg.norm(dual_residual)
+
+        eps_primal = (
+            np.sqrt(B_tf.shape[0]) * abs_tol
+            + rel_tol * max(
+                np.linalg.norm(B_tf @ alpha),
+                np.linalg.norm(z)
+            )
+        )
+
+        eps_dual = (
+            np.sqrt(n_obs) * abs_tol
+            + rel_tol * np.linalg.norm(rho * B_tf.T @ u)
+        )
+
+        if primal_norm <= eps_primal and dual_norm <= eps_dual:
+            return alpha, iteration
+
+    print("Warning: l1 Trend Filtering reached the maximum number of ADMM iterations.")
+
+    return alpha, max_iter
+
+
+# ============================================================
+# Main script
+# ============================================================
+
+# Simulate data
+t, clean_signal, noisy_signal = simulate_noisy_signal(
+    T=T,
+    noise_std=NOISE_STD
+)
+
+# Construct knots and B-spline design matrix
+knots, extended_knots = construct_knots(
+    T=T,
+    knot_spacing=KNOT_SPACING
+)
+
+B = make_bspline_design(t, extended_knots)
+
+# Construct difference matrices
+D_trend = difference_matrix(T, K_TREND_FILTER)
+D_beta = difference_matrix(B.shape[1], K_SPLINE)
+
+# Estimate spline trend filtering
+spline_beta, spline_iterations = spline_trend_filtering(
+    y=noisy_signal,
+    B=B,
+    D_trend=D_trend,
+    D_beta=D_beta,
+    lambda_trend=LAMBDA_TREND_FILTER,
+    lambda_spline=LAMBDA_SPLINE,
+    k_trend=K_TREND_FILTER,
+    rho=RHO,
+    abs_tol=ABS_TOL,
+    rel_tol=REL_TOL,
+    max_iter=MAX_ADMM_ITER
+)
+
+# Estimate l1 trend filtering
+l1_trend, l1_iterations = l1_trend_filtering(
+    y=noisy_signal,
+    D_trend=D_trend,
+    lambda_trend=LAMBDA_TREND_FILTER,
+    k_trend=K_TREND_FILTER,
+    rho=RHO,
+    abs_tol=ABS_TOL,
+    rel_tol=REL_TOL,
+    max_iter=MAX_ADMM_ITER
+)
+
+# Evaluate spline trend on a dense grid
+t_dense = np.linspace(1, T, N_DENSE_GRID)
+B_dense = make_bspline_design(t_dense, extended_knots)
+spline_trend_dense = B_dense @ spline_beta
+
+
+# ============================================================
+# Plot results
+# ============================================================
+
+fig, axes = plt.subplots(1, 3, figsize=(18, 5))
+
+# Exact signal and noisy observations
+axes[0].plot(
+    t,
+    clean_signal,
+    linewidth=1.5,
+    label="Exact signal"
+)
+
+axes[0].plot(
+    t,
+    noisy_signal,
+    ".",
+    markersize=5,
+    label="Noisy observations"
+)
+
+axes[0].set_title("Exact Signal and Noisy Observations")
+axes[0].legend(loc="best")
+
+
+# l1 trend filtering
+axes[1].plot(
+    t,
+    l1_trend,
+    linewidth=1.5,
+    label="l1 trend filtering"
+)
+
+axes[1].plot(
+    t,
+    noisy_signal,
+    ".",
+    markersize=5,
+    label="Noisy observations"
+)
+
+axes[1].set_title(
+    rf"l1 Trend Filtering"
+    + "\n"
+    + rf"$\lambda_1={LAMBDA_TREND_FILTER}$, $k_1={K_TREND_FILTER}$"
+)
+
+axes[1].legend(loc="best")
+
+
+# Spline trend filtering
+axes[2].plot(
+    t_dense,
+    spline_trend_dense,
+    linewidth=1.5,
+    label="Spline trend filtering"
+)
+
+axes[2].plot(
+    t,
+    noisy_signal,
+    ".",
+    markersize=5,
+    label="Noisy observations"
+)
+
+axes[2].set_title(
+    rf"Spline Trend Filtering"
+    + "\n"
+    + rf"$\lambda_1={LAMBDA_TREND_FILTER}$, "
+    + rf"$\lambda_2={LAMBDA_SPLINE}$"
+    + "\n"
+    + rf"$k_1={K_TREND_FILTER}$, "
+    + rf"$k_2={K_SPLINE}$, "
+    + rf"knot spacing = {KNOT_SPACING}"
+)
+
+axes[2].legend(loc="best")
+
+plt.tight_layout()
+plt.show()
+
+
+# ============================================================
+# Report convergence
+# ============================================================
+
+print(f"Spline Trend Filtering ADMM iterations: {spline_iterations}")
+print(f"l1 Trend Filtering ADMM iterations: {l1_iterations}")
