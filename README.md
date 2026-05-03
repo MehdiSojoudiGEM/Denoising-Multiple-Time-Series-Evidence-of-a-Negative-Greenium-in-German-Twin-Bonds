@@ -34,11 +34,10 @@ The difference-order convention is:
     k = 1  second differences
     k = 2  third differences
 
-Spline trend filtering represents the trend using cubic B-spline basis functions:
+Spline trend filtering combines l1 trend filtering with cubic spline methods.
 
-    trend = B beta
 
-where B is the spline design matrix and beta is the vector of spline coefficients.
+At the same time, a regularization is applied to the spline coefficients in a way similar to l1 trend filtering, allowing the method to capture smooth trends while preserving possible structural changes.
 
 
 ADMM, CVX, and CVXPY
