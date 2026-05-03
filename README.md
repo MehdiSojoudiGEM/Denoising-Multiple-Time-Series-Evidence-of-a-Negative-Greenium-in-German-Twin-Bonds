@@ -316,9 +316,8 @@ Python:
 Notes
 -----
 
-- Use ADMM versions when speed and scalability are important.
+- Use ADMM versions when scalability is important.
 - Use CVX or CVXPY versions when clarity and direct convex formulation are preferred.
-- In graph-time codes, the graph structure determines which node pairs are encouraged to move together.
-- In correlation-based graphs, the graph is data-driven and depends on the observed noisy signals.
 - Larger regularization parameters produce smoother estimates.
-- Smaller regularization parameters allow the fitted trend to follow the noisy data more closely.
+- Larger difference orders produce smoother estimates.
+
