@@ -243,32 +243,44 @@ To run only graph-time spline trend filtering ADMM:
     params.methodsToRun = {'graph_spline_trend_filtering_admm'};
 
 
-How to run the MATLAB codes
----------------------------
+How to run the codes
+--------------------
 
-1. Open MATLAB.
-2. Put the code file in the current folder.
-3. If the file uses CVX, install CVX and add it to the MATLAB path.
-4. Run the script.
+MATLAB
+------
 
-Examples:
+1. Install MATLAB.
+2. Install CVX if you want to run the CVX-based parts or the spline ADMM parts.
+
+CVX website:
+
+    http://cvxr.com/cvx/
+
+After downloading CVX, open MATLAB, go to the CVX folder, and run:
+
+    cvx_setup
+
+Then run the MATLAB codes, for example:
 
     run('2D- ADMM.m')
+    run('2D- CVX.m')
     run('3D- ADMM.m')
+    run('3D- CVX.m')
 
 
-How to run the Python codes
----------------------------
+Python
+------
 
-Install the required packages:
+Install Python packages using:
 
     pip install numpy scipy matplotlib cvxpy
 
-Then run:
+Then run the Python codes:
 
     python 2d-ADMM.py
     python 3d-ADMM.py
 
+The Python spline versions use CVXPY, so cvxpy must be installed.
 
 Output
 ------
