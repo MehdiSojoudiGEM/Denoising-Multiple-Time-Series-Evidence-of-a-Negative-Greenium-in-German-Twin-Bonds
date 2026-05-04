@@ -255,10 +255,9 @@ CVX website:
 
     http://cvxr.com/cvx/
 
-After downloading CVX, open MATLAB, go to the CVX folder, and run:
+Then, follow the guidelines on the website to install the CVX package on your MATLAB.
 
-    cvx_setup
-
+   
 Then run the MATLAB codes, for example:
 
     run('2D- ADMM.m')
