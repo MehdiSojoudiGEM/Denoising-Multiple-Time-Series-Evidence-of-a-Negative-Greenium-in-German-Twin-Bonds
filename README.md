@@ -71,6 +71,7 @@ The main files are:
     3D - CVX.txt       Graph-time MATLAB CVX code
     2d - ADMM.txt      Univariate Python ADMM/CVXPY code
     3d - ADMM.txt      Graph-time Python ADMM/CVXPY code
+    Greenium.txt       German twin-bond greenium denoising code
 
 The 2D files are for univariate time series.
 
