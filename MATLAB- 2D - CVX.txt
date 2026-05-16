@@ -1,24 +1,3 @@
-%% clean_trend_filtering_cvx.m
-% -------------------------------------------------------------------------
-% Goal:
-%   Estimate the underlying trend of a noisy univariate time series using:
-%       1. l1 trend filtering
-%       2. spline trend filtering
-%
-% Optimization:
-%   Both estimators are solved using the CVX package in MATLAB.
-%
-% Requirements:
-%   CVX must be installed and added to the MATLAB path.
-%   CVX website: http://cvxr.com/cvx/
-%
-% Main features:
-%   - Clean parameter section
-%   - Several built-in signal-generating functions
-%   - Option to use a custom signal
-%   - Option to run all methods or only one method
-%   - Helper functions at the end of the file
-% -------------------------------------------------------------------------
 
 clear
 clc
@@ -28,16 +7,16 @@ close all
 % 1. User inputs
 % -------------------------------------------------------------------------
 
-params.T = 400;                  % Length of the time series
-params.noiseStd = 0.10;          % Standard deviation of Gaussian noise
+params.T = 1000;                  % Length of the time series
+params.noiseStd = 0.1;          % Standard deviation of Gaussian noise
 
 params.kTrend = 1;               % Difference order for l1 trend filtering
-params.kSpline = 1;              % Difference order for spline penalty
+params.kSpline = 2;              % Difference order for spline penalty
 
-params.knotSpacing = 5;          % Distance between two adjacent knots
+params.knotSpacing = 8;          % Distance between two adjacent knots
 
-params.lambdaTrend = 0.01;       % Tuning parameter for l1 trend filtering
-params.lambdaSpline = 0.01;      % Tuning parameter for spline smoothness
+params.lambdaTrend = 0.001;       % Tuning parameter for l1 trend filtering
+params.lambdaSpline = 0.001;      % Tuning parameter for spline smoothness
 
 % Choose the signal-generating function.
 % Available options:
@@ -58,14 +37,11 @@ params.customSignal = @(x) 0.50 * sin(4 * pi * x) + 0.25 * x;
 %   {'spline_trend_filtering'}
 params.methodsToRun = {'all'};
 
-% Set the random seed for reproducibility.
-params.randomSeed = 123;
+
 
 %% ------------------------------------------------------------------------
 % 2. Generate the noisy time series
 % -------------------------------------------------------------------------
-
-rng(params.randomSeed)
 
 t = (1:params.T)';
 x = linspace(0, 1, params.T)';
@@ -246,8 +222,6 @@ function D = createDifferenceMatrix(n, orderK)
 % For orderK = 0, the function returns the first-difference matrix.
 % For orderK = 1, it returns the second-difference matrix.
 % For orderK = 2, it returns the third-difference matrix, and so on.
-%
-% This follows the convention used in the original code.
 
 D = diff(eye(n), orderK + 1);
 
