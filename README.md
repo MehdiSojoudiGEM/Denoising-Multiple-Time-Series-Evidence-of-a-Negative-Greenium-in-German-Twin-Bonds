@@ -133,23 +133,23 @@ The graph-time codes allow two choices to connect the nodes.
 Main parameters
 ---------------
 
-Sample size, i.e. the number of observations over time:
+1- Sample size, i.e. the number of observations over time:
 
     MATLAB:  params.T = 200;
     Python:  params["T"] = 200
 
-Number of nodes, only for graph-time codes:
+2- Number of nodes, only for graph-time codes:
 
     MATLAB:  params.N = 3;
     Python:  params["N"] = 3
 
-Noise level: Larger values correspond to noisier data:
+3- Noise level: Larger values correspond to noisier data:
 
     MATLAB:  params.noiseStd = 0.10;
     Python:  params["noise_std"] = 0.10
 
 
-Difference-order convention: The parameter k controls the order of the finite-difference operator used in
+4- Difference-order convention: The parameter k controls the order of the finite-difference operator used in
 the regularization terms:
 
     k = 0   first differences
@@ -169,6 +169,7 @@ Default parameter values for the difference-order convention:
         params["k_spline"] = 1
 
 For example: 
+
     kGraph  = 0
         First-order graph differences across connected nodes.
 
@@ -180,7 +181,7 @@ For example:
 
 
 
-Regularization parameters:
+5- Regularization parameters: Larger regularization parameters produce smoother estimates.
 
     MATLAB:
         params.lambdaGraph  = 0.001;
@@ -192,14 +193,13 @@ Regularization parameters:
         params["lambda_trend"]  = 0.001
         params["lambda_spline"] = 0.001
 
-Larger regularization parameters produce smoother estimates.
 
-Knot spacing for the spline basis:
+6- Knot spacing for the spline basis:
 
     MATLAB:  params.knotSpacing = 5;
     Python:  params["knot_spacing"] = 5
 
-Graph construction options:
+7- Graph construction options:
 
     MATLAB:  params.graphMode = 'correlation';
     Python:  params["graph_mode"] = "correlation"
@@ -207,20 +207,14 @@ Graph construction options:
 Available options:
 
     'complete'     all node pairs are connected
-    'random'       edges are randomly selected
     'correlation'  edges are selected based on empirical correlation
-
-Random graph probability:
-
-    MATLAB:  params.edgeProbability = 0.75;
-    Python:  params["edge_probability"] = 0.75
 
 Correlation threshold for correlation-based graph construction:
 
     MATLAB:  params.correlationThreshold = 0.50;
     Python:  params["correlation_threshold"] = 0.50
 
-Signal-generating function:
+8- Signal-generating function:
 
     MATLAB:  params.signalCase = 'three_node_original';
     Python:  params["signal_case"] = "three_node_original"
@@ -232,7 +226,7 @@ Available options:
     'piecewise_family'
     'custom'
 
-Method selection:
+9- Method selection:
 
     MATLAB:
         params.methodsToRun = {'all'};
@@ -246,7 +240,7 @@ Available options:
     'graph_trend_filtering_admm'
     'graph_spline_trend_filtering_admm'
 
-ADMM parameters:
+10- ADMM parameters: The following ADMM parameters are used, following the recommendations in the "Distributed Optimization and Statistical Learning via the Alternating Direction Method of Multipliers" paper by Boyd et al.:
 
     MATLAB:
         params.rho = 1.20;
