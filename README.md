@@ -1,3 +1,6 @@
+Denoising Multiple Time Series: Evidence of a Negative Greenium in German Twin Bonds
+================================================
+
 A code repository to accompany the paper 
 [*Denoising Multiple Time Series: Evidence of a Negative Greenium in German Twin Bonds*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=5734502), 
 by Mahdi Sojoudi, Gareth W. Peters, Carole Bernard, and Meysam Sojoudi.
