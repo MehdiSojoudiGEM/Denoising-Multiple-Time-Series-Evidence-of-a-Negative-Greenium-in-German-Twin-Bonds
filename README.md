@@ -1,4 +1,7 @@
-A code repository to accompany the paper \textit{Denoising Multiple Time Series: Evidence of a Negative Greenium in German Twin Bonds}\url{https://papers.ssrn.com/sol3/papers.cfm?abstract_id=5734502}, by Mahdi Sojoudi, Gareth W. Peters, Carole Bernard, and Meysam Sojoudi
+A code repository to accompany the paper 
+\href{https://papers.ssrn.com/sol3/papers.cfm?abstract_id=5734502}
+{\textit{Denoising Multiple Time Series: Evidence of a Negative Greenium in German Twin Bonds}}, 
+by Mahdi Sojoudi, Gareth W. Peters, Carole Bernard, and Meysam Sojoudi.
 
 
 
