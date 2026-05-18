@@ -297,11 +297,7 @@ To run only Spline trend filtering:
         params["methods_to_run"] = ["spline_trend_filtering"]
 
 
-How to run the codes
---------------------
 
-
-------------
 
 MATLAB Requirements
 ------
