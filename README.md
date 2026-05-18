@@ -215,33 +215,9 @@ Correlation threshold for correlation-based graph construction:
     MATLAB:  params.correlationThreshold = 0.50;
     Python:  params["correlation_threshold"] = 0.50
 
-8- Signal-generating function:
 
-    MATLAB:  params.signalCase = 'three_node_original';
-    Python:  params["signal_case"] = "three_node_original"
 
-Available options:
-
-    'three_node_original'
-    'smooth_sine_family'
-    'piecewise_family'
-    'custom'
-
-9- Method selection:
-
-    MATLAB:
-        params.methodsToRun = {'all'};
-
-    Python:
-        params["methods_to_run"] = ["all"]
-
-Available options:
-
-    'all'
-    'trend_filtering'
-    'spline_trend_filtering'
-
-10- ADMM parameters: The following ADMM parameters are used, following the recommendations in the "Distributed Optimization and Statistical Learning via the Alternating Direction Method of Multipliers" paper by Boyd et al.:
+8- ADMM parameters: The following ADMM parameters are used, following the recommendations in the "Distributed Optimization and Statistical Learning via the Alternating Direction Method of Multipliers" paper by Boyd et al.:
 
     MATLAB:
         params.rho = 1.20;
@@ -256,7 +232,7 @@ Available options:
         params["max_iterations"] = 1000
 
 
-11- Choosing the signal
+9- Choosing the signal
 
 For univariate codes, typical signal options are:
 
@@ -283,9 +259,20 @@ For a custom multiple MATLAB signal, the function must return an N x T matrix:
     params.customSignal = @(x, N, T) repmat(sin(2 * pi * x), N, 1);
 
 
-12- Choosing the method
+10- Choosing the method:
 
-To run all methods:
+The method can be selected using the following options:
+
+    all
+        Runs all available methods.
+
+    trend_filtering
+        Runs only l1 trend filtering.
+
+    spline_trend_filtering
+        Runs only Spline trend filtering.
+
+For example, to run all methods:
 
     MATLAB:
         params.methodsToRun = {'all'};
@@ -293,21 +280,21 @@ To run all methods:
     Python:
         params["methods_to_run"] = ["all"]
 
-To run only univariate l1 trend filtering ADMM:
+To run only l1 trend filtering:
 
-    params.methodsToRun = {'trend_filtering_admm'};
+    MATLAB:
+        params.methodsToRun = {'trend_filtering'};
 
-To run only univariate Spline trend filtering ADMM:
+    Python:
+        params["methods_to_run"] = ["trend_filtering"]
 
-    params.methodsToRun = {'Spline_trend_filtering_admm'};
+To run only Spline trend filtering:
 
-To run only multiple l1 trend filtering ADMM:
+    MATLAB:
+        params.methodsToRun = {'spline_trend_filtering'};
 
-    params.methodsToRun = {'graph_trend_filtering_admm'};
-
-To run only multiple Spline trend filtering ADMM:
-
-    params.methodsToRun = {'graph_Spline_trend_filtering_admm'};
+    Python:
+        params["methods_to_run"] = ["spline_trend_filtering"]
 
 
 How to run the codes
