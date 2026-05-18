@@ -10,7 +10,7 @@ close all
 
 params.T = 1000;                  % Length of the time series
 
-params.noiseStd = 0.1;            % Standard deviation of Gaussian noise
+params.noiseStd = 0.1;            % Noise Level
 
 params.kTrend = 1;                % Difference order for l1 trend filtering
 params.kSpline = 2;               % Difference order for spline penalty
