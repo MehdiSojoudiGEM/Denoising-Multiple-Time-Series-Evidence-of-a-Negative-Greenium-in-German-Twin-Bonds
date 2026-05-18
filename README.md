@@ -160,10 +160,14 @@ In the 3D graph-time versions, three difference-order parameters are used:
     params.kSpline: Difference order for the spline penalty
 
 
-All difference-order parameters can take values  0, 1, 2, 3, ...
+All difference-order parameters can take values: 0, 1, 2, 3, ...
 
 
-5- Regularization parameters: Larger regularization parameters produce smoother estimates.
+5- Regularization parameters:
+
+Regularization parameters control the strength of the smoothness penalties. Larger regularization parameters produce smoother estimates. 
+
+For example:
 
     MATLAB:
         params.lambdaGraph  = 0.001;
@@ -173,8 +177,20 @@ All difference-order parameters can take values  0, 1, 2, 3, ...
     Python:
         params["lambda_graph"]  = 0.001
         params["lambda_trend"]  = 0.001
-        params["lambda_Spline"] = 0.001
+        params["lambda_spline"] = 0.001
 
+In the 2D versions, two regularization parameters are used:
+
+    params.lambdaTrend: Regularization strength for l1 trend filtering
+    params.lambdaSpline: Regularization strength for the spline penalty
+
+In the 3D graph-time versions, three regularization parameters are used:
+
+    params.lambdaGraph: Regularization strength for the graph penalty
+    params.lambdaTrend: Regularization strength for l1 trend filtering
+    params.lambdaSpline: Regularization strength for the spline penalty
+
+All regularization parameters can take non-negative values in [0,inf], such as: 0, 0.001, 0.01, 0.5, 15, ...
 
 6- Knot spacing for the Spline basis:
 
