@@ -238,8 +238,8 @@ Available options:
 Available options:
 
     'all'
-    'graph_trend_filtering_admm'
-    'graph_Spline_trend_filtering_admm'
+    'trend_filtering'
+    'spline_trend_filtering'
 
 10- ADMM parameters: The following ADMM parameters are used, following the recommendations in the "Distributed Optimization and Statistical Learning via the Alternating Direction Method of Multipliers" paper by Boyd et al.:
 
