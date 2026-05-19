@@ -243,7 +243,7 @@ For univariate codes, typical signal options are:
 
 For multiple codes, typical signal options are:
 
-    three_node
+    three_nodes
     smooth_sine_family
     piecewise_family
     custom
