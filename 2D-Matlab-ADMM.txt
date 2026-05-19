@@ -38,8 +38,8 @@ params.customSignal = @(x) 0.50 * sin(4 * pi * x) + 0.25 * x;
 % Choose which method to run.
 % Available options:
 %   {'all'}
-%   {'trend_filtering_admm'}
-%   {'spline_trend_filtering_admm'}
+%   {'trend_filtering'}
+%   {'spline_trend_filtering'}
 params.methodsToRun = {'all'};
 
 %% ------------------------------------------------------------------------
@@ -89,11 +89,11 @@ DSpline = createDifferenceMatrix(numberOfSplineCoefficients, params.kSpline);
 
 runTrendFilteringADMM = ...
     any(strcmp(params.methodsToRun, 'all')) || ...
-    any(strcmp(params.methodsToRun, 'trend_filtering_admm'));
+    any(strcmp(params.methodsToRun, 'trend_filtering'));
 
 runSplineTrendFilteringADMM = ...
     any(strcmp(params.methodsToRun, 'all')) || ...
-    any(strcmp(params.methodsToRun, 'spline_trend_filtering_admm'));
+    any(strcmp(params.methodsToRun, 'spline_trend_filtering'));
 
 trendFilteringFit = [];
 trendDiagnostics = [];
