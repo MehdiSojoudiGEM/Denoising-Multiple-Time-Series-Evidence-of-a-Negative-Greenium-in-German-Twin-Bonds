@@ -308,17 +308,43 @@ CVX website:
 
     http://cvxr.com/cvx/
 
-Then, follow the guidelines on the website to install the CVX package on your MATLAB.
+Then, follow the guidelines on the website to install the CVX  on your MATLAB.
 
 
 
 Python Requirements
 ------
 
-Install Python packages:
+Required Python libraries for the 2D version
+--------------------------------------------
 
-    math numpy matplotlib cvxpy
+The 2D version of the code uses the following Python packages:
 
+    numpy
+    matplotlib
+    cvxpy
+
+You can install them with:
+
+    pip install numpy matplotlib cvxpy
+
+The other modules used in the code are part of the Python standard library and do not need to be installed separately:
+
+    math
+    warnings
+    dataclasses
+    typing
+
+The imports used in the Python code are:
+
+    import math
+    import warnings
+    from dataclasses import dataclass
+    from typing import Callable, Dict, List, Optional, Tuple
+
+    import cvxpy as cp
+    import matplotlib.pyplot as plt
+    import numpy as np
 
 Output
 ------
