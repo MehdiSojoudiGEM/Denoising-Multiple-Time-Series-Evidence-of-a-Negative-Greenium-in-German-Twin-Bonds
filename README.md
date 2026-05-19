@@ -312,11 +312,11 @@ Then, follow the guidelines on the website to install the CVX  on your MATLAB.
 
 
 
-Python Requirements
-------
+Required Python libraries
+-------------------------
 
-Required Python libraries for the 2D version
---------------------------------------------
+2D version
+----------
 
 The 2D version of the code uses the following Python packages:
 
@@ -335,7 +335,7 @@ The other modules used in the code are part of the Python standard library and d
     dataclasses
     typing
 
-The imports used in the Python code are:
+The imports used in the 2D Python code are:
 
     import math
     import warnings
@@ -345,6 +345,44 @@ The imports used in the Python code are:
     import cvxpy as cp
     import matplotlib.pyplot as plt
     import numpy as np
+
+
+3D version
+----------
+
+The 3D version of the code uses the following Python packages:
+
+    numpy
+    matplotlib
+    cvxpy
+    scipy
+
+You can install them with:
+
+    pip install numpy matplotlib cvxpy scipy
+
+The other modules used in the code are part of the Python standard library and do not need to be installed separately:
+
+    __future__
+    math
+    warnings
+    dataclasses
+    typing
+
+The imports used in the 3D Python code are:
+
+    from __future__ import annotations
+
+    import math
+    import warnings
+    from dataclasses import dataclass, field
+    from typing import Callable, Literal
+
+    import cvxpy as cp
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import scipy.sparse as sp
+    import scipy.sparse.linalg as spla
 
 Output
 ------
