@@ -146,7 +146,7 @@ The parameter k controls the order of the finite-difference operator used in the
     Python:
         params["k_graph"]  = 0
         params["k_trend"]  = 1
-        params["k_Spline"] = 1
+        params["k_spline"] = 1
 
 In the 2D versions, two difference-order parameters are used:
 
@@ -243,7 +243,7 @@ For univariate codes, typical signal options are:
 
 For multiple codes, typical signal options are:
 
-    three_node_original
+    three_node
     smooth_sine_family
     piecewise_family
     custom
